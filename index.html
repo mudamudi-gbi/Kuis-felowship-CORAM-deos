@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coram Deo - Live Leaderboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+
+    <style>
+        /* --- Reset & Base --- */
+        * { 
+            box-sizing: border-box; 
+            margin: 0; 
+            padding: 0; 
+        }
+
+        body { 
+            font-family: 'Montserrat', sans-serif; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            background-color: #f0f4f8; 
+            text-align: center; 
+            color: #1a202c; 
+            line-height: 1.5; 
+            
+            /* [UX FIX] Mencegah user menyeleksi teks (anti-contek) */
+            -webkit-user-select: none; /* Safari */
+            -ms-user-select: none; /* IE 10 and IE 11 */
+            user-select: none; /* Standard syntax */
+        }
+
+        .hidden { display: none !important; }
+        
+        /* --- Container --- */
+        #quiz-container, #intro-container, #certificate-screen > div { 
+            background: white; 
+            padding: 40px 30px; 
+            border-radius: 24px; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            margin-bottom: 25px; 
+            width: 100%; 
+        }
+
+        /* --- Input & Button --- */
+        input[type="text"] { 
+            width: 100%; 
+            padding: 16px; 
+            margin-bottom: 15px; 
+            border: 2px solid #e2e8f0; 
+            border-radius: 12px; 
+            text-align: center; 
+            font-size: 16px; 
+            font-weight: 600;
+            font-family: 'Montserrat', sans-serif;
+            transition: border-color 0.2s;
+            /* Pastikan input bisa diketik walau body ada user-select: none */
+            -webkit-user-select: text;
+            user-select: text;
+        }
+        input[type="text"]:focus { border-color: #28a745; outline: none; }
+
+        button { 
+            cursor: pointer; 
+            padding: 16px 30px; 
+            background: #28a745; 
+            color: white; 
+            border: none; 
+            border-radius: 12px; 
+            font-weight: bold; 
+            font-size: 16px;
+            font-family: 'Montserrat', sans-serif;
+            transition: all 0.2s; 
+            width: 100%; 
+            box-shadow: 0 4px 6px -1px rgba(40, 167, 69, 0.3);
+        }
+        button:hover { background: #218838; }
+        button:active { transform: translateY(1px); }
+        button:disabled { background: #a0aec0; cursor: not-allowed; box-shadow: none; transform: none; }
+
+        /* --- Papan Skor (Leaderboard) --- */
+        #leaderboard-section {
+            width: 100%;
+            padding: 0; 
+            margin-top: 10px;
+        }
+
+        .leaderboard-table { 
+            width: 100%; 
+            border-collapse: separate; 
+            border-spacing: 0 8px; 
+            margin-top: 15px; 
+            table-layout: fixed; 
+        }
+
+        .leaderboard-table th { 
+            background: #28a745; 
+            color: white; 
+            padding: 15px 10px; 
+            font-weight: 700; 
+            text-transform: uppercase; 
+            letter-spacing: 1px; 
+            font-size: 12px; 
+        }
+        .leaderboard-table th:first-child { border-radius: 12px 0 0 12px; }
+        .leaderboard-table th:last-child { border-radius: 0 12px 12px 0; }
+        
+        .leaderboard-table tbody tr { 
+            background: #fff; 
+            transition: transform 0.2s ease;
+        }
+        .leaderboard-table tbody tr:not(.no-data):hover { 
+            transform: scale(1.02); 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+        
+        .leaderboard-table td { 
+            padding: 15px 10px; 
+            border-top: 1px solid #edf2f7; 
+            border-bottom: 1px solid #edf2f7; 
+            font-weight: 600; 
+            vertical-align: middle;
+        }
+        .leaderboard-table td:first-child { border-left: 1px solid #edf2f7; border-radius: 12px 0 0 12px; }
+        .leaderboard-table td:last-child { border-right: 1px solid #edf2f7; border-radius: 0 12px 12px 0; }
+        
+        /* [UI FIX] Lebar Kolom & Ellipsis untuk Mobile */
+        .col-rank { width: 50px; text-align: center; font-size: 14px;}
+        
+        .col-nama { 
+            text-align: left; 
+            padding-left: 15px !important;
+            /* Efek titik-titik jika nama kepanjangan di layar super kecil */
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .col-skor { width: 80px; text-align: center; font-variant-numeric: tabular-nums; font-size: 14px;}
+
+        .rank-1 td { background: #fffbeb; color: #b45309; border-color: #fef3c7; font-weight: 700;}
+        .rank-1 td.col-rank { font-size: 1.3em; }
+        .rank-2 td { background: #f1f5f9; color: #475569; border-color: #e2e8f0; }
+        .rank-3 td { background: #fff7ed; color: #c2410c; border-color: #ffedd5; }
+        
+        /* --- Quiz UI --- */
+        #timer { font-size: 36px; color: #e74c3c; font-weight: 800; margin-bottom: 20px; font-variant-numeric: tabular-nums; }
+        
+        #question-content h2 { font-size: 20px; font-weight: 700; margin-bottom: 25px; margin-top: 10px; -webkit-user-select: none; user-select: none;}
+
+        .option-label { 
+            display: flex; align-items: center; 
+            background: #f8fafc; margin: 12px 0; padding: 18px; 
+            border-radius: 12px; cursor: pointer; 
+            border: 2px solid #edf2f7; text-align: left; 
+            transition: all 0.2s ease; font-weight: 600;
+        }
+        .option-label:hover { background: #edf2f7; border-color: #cbd5e0; }
+        .option-label input[type="radio"] { margin-right: 15px; transform: scale(1.3); accent-color: #28a745; cursor: pointer; }
+
+        /* Feedback Jawaban */
+        .correct { background: #d4edda !important; border-color: #c3e6cb !important; color: #155724; }
+        .wrong { background: #f8d7da !important; border-color: #f5c6cb !important; color: #721c24; }
+
+        /* --- Status Messages --- */
+        #status-pesan { padding: 18px; border-radius: 12px; margin-bottom: 25px; font-weight: 700; font-size: 15px; }
+        .sudah-main { background: #fff5f5; color: #c53030; border: 1px solid #feb2b2; }
+        .siap-main { background: #f0fff4; color: #2f855a; border: 1px solid #9ae6b4; }
+
+        /* Certificate */
+        #cert-score { font-size: 72px; color: #28a745; font-weight: 800; margin: 10px 0; }
+        
+        /* Utility */
+        hr { border: 0; border-top: 2px solid #edf2f7; margin: 40px 0; }
+        h1 { font-weight: 800; margin-bottom: 10px; }
+        h2 { font-weight: 800; }
+
+        /* Admin Footer */
+        .admin-footer { font-size: 11px; color: #a0aec0; margin-top: 50px; cursor: pointer; display: block; text-align: center;}
+    </style>
+</head>
+<body>
+
+    <div id="intro-container" class="animate__animated animate__fadeIn">
+        <h1 style="color: #28a745; margin-top: 0;">Forum Coram Deo 🕊️🏆</h1>
+        
+        <div id="status-pesan"> Memuat status... ⏳ </div>
+
+        <div id="form-pendaftaran">
+            <p style="font-weight: 600; color: #4a5568; margin-bottom: 10px;">Masukkan inisial/panggilan (max 5 huruf):</p>
+            <input type="text" id="nama-input" placeholder="Contoh: ANDI" maxlength="5">
+            <button id="startBtn" onclick="startQuiz()">Mulai Kuis 💡</button>
+        </div>
+
+        <hr>
+
+        <div id="leaderboard-section">
+            <h2 style="margin-top: 0;">📊 10 PERINGKAT TERATAS</h2>
+            <p style="font-size: 12px; color: #718096; margin-bottom: 10px;">(Skor Dasar + Bonus Sisa Waktu Detik)</p>
+            <table class="leaderboard-table">
+                <thead>
+                    <tr>
+                        <th class="col-rank">Rank</th>
+                        <th class="col-nama">Nama</th>
+                        <th class="col-skor">Skor</th>
+                    </tr>
+                </thead>
+                <tbody id="leaderboard-body">
+                    <tr class="no-data"><td colspan="3" style="color: #718096; background: transparent; border: none; padding: 20px 0;">Papan skor sedang dimuat ⏳</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <span class="admin-footer" onclick="adminReset()">Kendala teknis? Hub. Admin 📞</span>
+    </div>
+
+    <div id="quiz-container" class="hidden animate__animated animate__fadeIn">
+        <div id="timer">15</div>
+        <div id="question-content"></div>
+        <button id="controlBtn" onclick="handleConfirmClick()" style="margin-top: 15px;">Konfirmasi Jawaban</button>
+    </div>
+
+    <div id="certificate-screen" class="hidden animate__animated animate__zoomIn">
+        <div style="border: 6px double #28a745; text-align: center; padding: 30px 20px;">
+            <h2 style="color: #2f855a; margin-top: 0;">Selamat!</h2>
+            <p style="margin-bottom: 5px; color: #718096;">Saudara/i:</p>
+            <h1 id="cert-name" style="color: #1a202c; margin-top: 0; text-transform: uppercase;">Nama</h1>
+            <p>Kamu berhasil mendapatkan skor:</p>
+            <h1 id="cert-score">0</h1>
+            <p style="color: #718096; margin-bottom: 25px; font-size: 14px;">Namamu sudah tercatat di Papan Skor.</p>
+            <button onclick="location.reload()">Kembali ke Beranda</button>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
+
+    <script>
+        /* ⚠️ PENTING: PENGATURAN KEAMANAN FIREBASE ⚠️
+           Di Console Firebase (Database > Rules), pastikan aturannya seperti ini
+           agar user tidak bisa menghapus skor orang lain:
+
+           {
+             "rules": {
+               ".read": true,
+               "scores": {
+                 // Izinkan tambah data baru (.post), tapi melarang edit/hapus (.write)
+                 ".write": "!data.exists() || !newData.exists()" 
+               }
+             }
+           }
+        */
+
+        // --- CONFIGURASI FIREBASE ---
+        // Ganti dengan config Firebase milik saudara jika ini hanya dummy
+        const firebaseConfig = {
+            apiKey: "AIzaSyCctg_ysZNzU_LPbzQRwYu8ZepLyPJxnx0",
+            authDomain: "kuis-8ab9d.firebaseapp.com",
+            databaseURL: "https://kuis-8ab9d-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "kuis-8ab9d",
+            storageBucket: "kuis-8ab9d.firebasestorage.app",
+            messagingSenderId: "756570505588",
+            appId: "1:756570505588:web:bcaf1b7d22318528a96c21"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // --- DATABASE SOAL ---
+        const databaseSoal = [
+    { 
+        q: "Siapakah nama ayah dari Musa, Harun, dan Miryam?", 
+        a: "Amram", 
+        options: ["Amram", "Ishak", "Kehat"], 
+        base: 40 // Skor lebih tinggi untuk soal sulit
+    },
+    { 
+        q: "Di pulau manakah Rasul Yohanes menerima penglihatan Wahyu?", 
+        a: "Patmos", 
+        options: ["Siprus", "Patmos", "Kreta"], 
+        base: 30 
+    },
+    { 
+        q: "Berapa hari Yunus berada di dalam perut ikan besar?", 
+        a: "3 Hari", 
+        options: ["7 Hari", "3 Hari", "40 Hari"], 
+        base: 25 
+    },
+    { 
+        q: "Apa tanda perjanjian Tuhan kepada Nuh bahwa tidak akan ada air bah lagi?", 
+        a: "Pelangi", 
+        options: ["Bintang", "Pelangi", "Awan"], 
+        base: 20 
+    },
+    { 
+        q: "Siapakah nama Ibu dari Tuhan Yesus?", 
+        a: "Maria", 
+        options: ["Elisabet", "Marta", "Maria"], 
+        base: 15 
+    }
+];
+
+        // --- STATE APLIKASI ---
+        let soalAcak = [], currentStep = 0, totalScore = 0, timeLeft = 15, timerInterval, userNama = "";
+        let currentCorrectAnswer = "";
+        let isProcessing = false; // Mencegah double click
+
+        // --- UTILITAS: SANITASI INPUT (Anti XSS) ---
+        function sanitize(text) {
+            if (!text) return "";
+            return text.toString().replace(/</g, "&lt;").replace(/>/g, "&gt;").trim();
+        }
+
+        // --- ON LOAD ---
+        window.onload = () => {
+            const statusBox = document.getElementById("status-pesan");
+            const formBox = document.getElementById("form-pendaftaran");
+            const namaInput = document.getElementById("nama-input");
+
+            namaInput.addEventListener("keypress", (e) => { if (e.key === "Enter") startQuiz(); });
+
+            if (localStorage.getItem("coram_deo_done_v1")) {
+                statusBox.innerText = "🚫 Saudara sudah berpartisipasi. Pantau skor Anda di bawah!";
+                statusBox.className = "animate__animated animate__fadeIn sudah-main";
+                formBox.classList.add("hidden");
+            } else {
+                statusBox.innerText = "✅ Selamat datang! Ayo tunjukkan kemampuanmu!";
+                statusBox.className = "animate__animated animate__fadeIn siap-main";
+                namaInput.focus();
+            }
+            
+            initLeaderboard();
+        };
+
+        // --- LOGIC: LEADERBOARD ---
+        function initLeaderboard() {
+            const tbody = document.getElementById("leaderboard-body");
+            
+            // Ambil top 10 berdasarkan skor tertinggi
+            db.ref("scores").orderByChild("skor").limitToLast(10).on("value", (snap) => {
+                let data = [];
+                snap.forEach(child => { data.push({id: child.key, ...child.val()}); });
+                data.reverse(); // Urutkan dari terbesar
+
+                tbody.innerHTML = "";
+
+                if (data.length === 0) {
+                    tbody.innerHTML = `<tr class="no-data"><td colspan="3" style="color: #718096; background: transparent; border: none; padding: 30px 0;">Belum ada data skor.</td></tr>`;
+                    return;
+                }
+
+                data.forEach((item, index) => {
+                    const tr = document.createElement('tr');
+                    
+                    let rankDisplay = index + 1;
+                    if (index === 0) { tr.className = "rank-1"; rankDisplay = "🥇"; }
+                    else if (index === 1) { tr.className = "rank-2"; rankDisplay = "🥈"; }
+                    else if (index === 2) { tr.className = "rank-3"; rankDisplay = "🥉"; }
+
+                    // Animasi masuk
+                    tr.classList.add('animate__animated', 'animate__fadeInUp');
+                    tr.style.animationDelay = `${index * 50}ms`;
+
+                    // Sanitasi Nama (Double check saat menampilkan)
+                    const cleanNama = sanitize(item.nama);
+
+                    tr.innerHTML = `
+                        <td class="col-rank">${rankDisplay}</td>
+                        <td class="col-nama">${cleanNama}</td>
+                        <td class="col-skor">${item.skor}</td>
+                    `;
+                    
+                    tbody.appendChild(tr);
+                });
+            });
+        }
+
+        // --- LOGIC: KUIS ---
+        function startQuiz() {
+            const inputElement = document.getElementById("nama-input");
+            // Ambil 5 huruf pertama, sanitasi, dan ubah ke UpperCase
+            userNama = sanitize(inputElement.value).substring(0, 5).toUpperCase();
+
+            // [LIMIT Logic] Validasi minimal 2 huruf agar tidak iseng
+            if (userNama.length < 2) {
+                inputElement.style.borderColor = "#e74c3c";
+                inputElement.animate([ { transform: 'translateX(-5px)' }, { transform: 'translateX(5px)' }, { transform: 'translateX(0)' } ], { duration: 300 });
+                inputElement.focus();
+                return alert("Mohon masukkan nama panggilan saudara (2-5 karakter)! 🙏");
+            }
+            
+            inputElement.style.borderColor = "#e2e8f0";
+            // Acak soal
+            soalAcak = [...databaseSoal].sort(() => Math.random() - 0.5);
+            
+            // Pindah screen
+            document.getElementById("intro-container").classList.add("hidden");
+            document.getElementById("quiz-container").classList.remove("hidden");
+            
+            currentStep = 0;
+            totalScore = 0;
+            renderQuestion();
+        }
+
+        function renderQuestion() {
+            isProcessing = false; // Reset status processing
+            const soal = soalAcak[currentStep];
+            currentCorrectAnswer = soal.a;
+
+            let html = `
+                <p style='color:#28a745; font-weight:700; font-size:13px; margin-bottom:5px; -webkit-user-select:none; user-select:none;'>Soal ${currentStep + 1} dari ${soalAcak.length}</p>
+                <h2>${soal.q}</h2>
+                <div id="options-group">
+            `;
+            
+            // Acak opsi
+            const opsiSuffle = [...soal.options].sort(() => Math.random() - 0.5);
+            opsiSuffle.forEach((opt, index) => {
+                const safeId = opt.replace(/[^a-zA-Z0-9]/g, '');
+                html += `
+                    <label class="option-label animate__animated animate__fadeInUp" style="animation-delay: ${index * 80}ms" id="label-${safeId}">
+                        <input type="radio" name="opt" value="${opt}"> 
+                        ${opt}
+                    </label>`;
+            });
+            html += `</div>`;
+            
+            document.getElementById("question-content").innerHTML = html;
+            startTimer();
+            
+            // Reset tombol kontrol
+            const btn = document.getElementById("controlBtn");
+            btn.innerText = "Konfirmasi Jawaban";
+            btn.style.background = "#28a745";
+            btn.disabled = false;
+        }
+
+        function startTimer() {
+            timeLeft = 15;
+            const timerEl = document.getElementById("timer");
+            timerEl.innerText = timeLeft;
+            timerEl.style.color = "#1a202c"; // Reset warna default
+            clearInterval(timerInterval); 
+
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timerEl.innerText = timeLeft;
+                
+                // Efek peringatan waktu habis
+                if (timeLeft <= 5 && timeLeft > 0) {
+                    timerEl.style.color = "#e74c3c";
+                    timerEl.animate([{opacity: 1}, {opacity: 0.5}, {opacity: 1}], {duration: 500});
+                }
+                
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    timerEl.innerText = "0";
+                    processAnswer(true); // Panggil fungsi dengan autoWrong = true
+                }
+            }, 1000);
+        }
+
+        // Handler UX untuk tombol konfirmasi
+        function handleConfirmClick() {
+            if (isProcessing) return; // Cegah klik ganda
+
+            const sel = document.querySelector('input[name="opt"]:checked');
+            if (!sel) {
+                return alert("Mohon pilih satu jawaban dulu ya! 😊");
+            }
+
+            processAnswer(false);
+        }
+
+        // [LOGIC FIX] Memperbaiki penanganan kondisi NULL pada sel
+        function processAnswer(autoWrong = false) {
+            if (isProcessing) return; 
+            isProcessing = true; // Kunci status
+
+            clearInterval(timerInterval);
+            const btn = document.getElementById("controlBtn");
+            btn.disabled = true;
+            btn.innerText = "Memproses...";
+            btn.style.background = "#a0aec0";
+
+            const sel = document.querySelector('input[name="opt"]:checked');
+            const correctSafeId = currentCorrectAnswer.replace(/[^a-zA-Z0-9]/g, '');
+            const correctLabel = document.getElementById(`label-${correctSafeId}`);
+
+            let delayTransition = 1500; // Delay standar sebelum soal berikutnya
+
+            if (autoWrong) {
+                // Kondisi Waktu Habis (sel mungkin null)
+                if (correctLabel) {
+                    correctLabel.classList.add('correct', 'animate__animated', 'animate__pulse');
+                }
+                btn.innerText = "Waktu Habis! ⌛";
+                btn.style.background = "#e74c3c";
+            } else {
+                // Kondisi User Menjawab (sel dipastikan tidak null oleh handleConfirmClick)
+                const userAnswer = sel.value;
+                const userSafeId = userAnswer.replace(/[^a-zA-Z0-9]/g, '');
+                const userLabel = document.getElementById(`label-${userSafeId}`);
+
+                if (userAnswer === currentCorrectAnswer) {
+                    // Jawaban Benar
+                    userLabel.classList.add('correct', 'animate__animated', 'animate__pulse');
+                    btn.innerText = "Benar! +"+(soalAcak[currentStep].base + timeLeft);
+                    btn.style.background = "#218838";
+                    totalScore += (soalAcak[currentStep].base + timeLeft);
+                } else {
+                    // Jawaban Salah
+                    userLabel.classList.add('wrong', 'animate__animated', 'animate__headShake');
+                    if (correctLabel) correctLabel.classList.add('correct');
+                    btn.innerText = "Salah! awokawok 🗿";
+                    btn.style.background = "#c53030";
+                    delayTransition = 2500; // Beri waktu lebih lama user melihat jawaban yg benar
+                }
+            }
+            
+            // Transisi ke soal berikutnya atau selesai
+            setTimeout(() => {
+                if (currentStep < soalAcak.length - 1) {
+                    currentStep++;
+                    renderQuestion();
+                } else {
+                    finishQuiz();
+                }
+            }, delayTransition);
+        }
+
+        function finishQuiz() {
+            const btn = document.getElementById("controlBtn");
+            btn.innerText = "Menyimpan Skor...";
+            btn.style.background = "#a0aec0";
+
+            // [SANITASI] Sanitasi lagi sebelum kirim ke DB (Penting walau input dibatasi)
+            const namaFinal = sanitize(userNama);
+
+            db.ref("scores").push({ 
+                nama: namaFinal, 
+                skor: totalScore,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            }).then(() => {
+                // Set flag agar tidak bisa main lagi
+                localStorage.setItem("coram_deo_done_v1", "true");
+                
+                // Tampilkan sertifikat
+                document.getElementById("quiz-container").classList.add("hidden");
+                document.getElementById("certificate-screen").classList.remove("hidden");
+                document.getElementById("cert-name").innerText = namaFinal;
+                document.getElementById("cert-score").innerText = totalScore;
+            }).catch((error) => {
+                console.error("Firebase Error:", error);
+                alert("Gagal menyimpan, karna anda sudah berpartisipasi di kuis ini, Jika ada kendala Hub.admin📞.");
+                location.reload();
+            });
+        }
+
+        // --- ADMIN FUNC ---
+        function adminReset() {
+            const pass = prompt("Password Admin:");
+            if (pass === "admingbi") {
+                if (confirm("Hapus semua skor online?")) {
+                    db.ref("scores").remove().then(() => {
+                        localStorage.removeItem("coram_deo_done_v1");
+                        location.reload();
+                    });
+                }
+            }
+        }
+    </script>
+</body>
+</html>
